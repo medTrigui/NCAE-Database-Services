@@ -14,7 +14,9 @@ ss -tlnp | grep 5432
 sudo ip addr add <IP_ADDR>/24 dev eth0
 ```
 # Check your Postrges version
+```bash
 psql --version
+```
 ---
 
 ## 2. Enable Remote Connections
