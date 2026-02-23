@@ -1,8 +1,6 @@
 # PostgreSQL Remote Access and Scoring User Setup  
 Full guide to enable remote access, create a scoring user, and grant read/write access.
 
----
-
 ## 1. Start PostgreSQL and Verify Service
 
 ```bash
