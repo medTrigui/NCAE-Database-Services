@@ -1,140 +1,156 @@
-# PostgreSQL Remote Access + Scoring User Setup (Full Checklist)
+# PostgreSQL Remote Access and Scoring User Setup  
+Full guide to enable remote access, create a scoring user, and grant read/write access.
 
-#####################################################################
-# 1. START POSTGRES & VERIFY IT'S LISTENING
-#####################################################################
+---
 
-# Start PostgreSQL
+## 1. Start PostgreSQL and Verify Service
+
+```bash
 sudo systemctl start postgresql
 sudo systemctl status postgresql
-
-# Check if PostgreSQL is listening on port 5432
 ss -tlnp | grep 5432
+```
 
+(Optional) Add an IP address:
+```bash
+sudo ip addr add <IP_ADDR>/24 dev eth0
+```
 # Check your Postrges version
 psql --version
+---
 
-# Optional: Add an IP address to your network interface
-sudo ip addr add <IP_ADDR>/24 dev eth0
+## 2. Enable Remote Connections
 
+### A) Edit postgresql.conf
 
-#####################################################################
-# 2. ALLOW REMOTE CONNECTIONS (IMPORTANT: EDIT BOTH FILES)
-#####################################################################
-
-# --- A) Edit postgresql.conf ---
-
-# Typical path on Debian/Ubuntu:
+Path:
+```bash
 /etc/postgresql/<version>/main/postgresql.conf
+```
 
+Edit:
+```bash
 sudo nano /etc/postgresql/<version>/main/postgresql.conf
+```
 
-# In this file, find the line:
-#   #listen_addresses = 'localhost'
-# Change it to:
+Find:
+```conf
+#listen_addresses = 'localhost'
+```
+
+Replace with:
+```conf
 listen_addresses = '*'
+```
 
-# Ensure correct port:
+Ensure:
+```conf
 port = 5432
+```
 
+---
 
-# --- B) Edit pg_hba.conf ---
+### B) Edit pg_hba.conf
 
-# Path:
+Path:
+```bash
+/etc/postgresql/<version>/main/pg_hba.conf
+```
+
+Edit:
+```bash
 sudo nano /etc/postgresql/<version>/main/pg_hba.conf
+```
 
-# Add this line to allow remote scoring user from ANY IP:
-# (Use your subnet instead of 0.0.0.0/0 for better security)
+Add:
+```conf
 host    scoringdb    scoring    0.0.0.0/0       md5
+```
 
-# Reload PostgreSQL to apply settings
+Reload:
+```bash
 sudo systemctl restart postgresql
+```
 
+---
 
-#####################################################################
-# 3. CONNECT TO POSTGRESQL AS SUPERUSER
-#####################################################################
+## 3. Connect as postgres Superuser
 
+```bash
 sudo -u postgres psql
+```
 
+---
 
-#####################################################################
-# 4. CREATE DATABASE, USER, AND GRANT PRIVILEGES
-#####################################################################
+## 4. Create Database, User, and Grant Permissions
 
--- Create database
+```sql
 CREATE DATABASE scoringdb;
 
--- Create scoring user with password
 CREATE USER scoring WITH PASSWORD 'strong_password_here';
 
--- Allow the user to connect to the database
 GRANT CONNECT ON DATABASE scoringdb TO scoring;
 
--- Switch into the database
 \c scoringdb
 
--- Allow user access to schema
 GRANT USAGE ON SCHEMA public TO scoring;
 
--- Give SELECT, INSERT, UPDATE, DELETE (full read/write) on all current tables
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO scoring;
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO scoring;
 
--- Allow necessary access for sequences (needed for SERIAL/IDENTITY)
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO scoring;
+GRANT ALL PRIVILEGES
+ON ALL SEQUENCES IN SCHEMA public
+TO scoring;
+```
 
+---
 
-#####################################################################
-# 4b. DEFAULT PRIVILEGES FOR FUTURE TABLES (VERY IMPORTANT)
-#####################################################################
+## 5. Set Default Privileges for Future Tables
 
--- Ensure future tables automatically get privileges
+```sql
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO scoring;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
 GRANT ALL PRIVILEGES ON SEQUENCES TO scoring;
+```
 
+---
 
-#####################################################################
-# 5. CREATE SCORING TABLE EXAMPLE
-#####################################################################
+## 6. Create Example Table
 
+```sql
 CREATE TABLE IF NOT EXISTS score_test (
     id SERIAL PRIMARY KEY,
     note VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+---
 
-#####################################################################
-# 6. BASIC POSTGRES COMMANDS
-#####################################################################
+## 7. Useful PostgreSQL Commands
 
--- List databases
+```sql
 \l
-
--- List users/roles
 \du
-
--- List tables in current database
 \dt
-
--- Test query
 SELECT * FROM score_test;
+```
 
+---
 
-#####################################################################
-# 7. TEST REMOTE CONNECTION (FROM SCORING MACHINE)
-#####################################################################
+## 8. Test Remote Connection
 
+```bash
 psql -h <SERVER_IP> -U scoring -d scoringdb
+```
 
-# Inside psql, run:
+Then inside psql:
+```sql
 INSERT INTO score_test (note) VALUES ('hello from remote');
 SELECT * FROM score_test;
+```
 
-
-#####################################################################
-# If the above commands work, your PostgreSQL remote scoring setup is correct.
-#####################################################################
+---
